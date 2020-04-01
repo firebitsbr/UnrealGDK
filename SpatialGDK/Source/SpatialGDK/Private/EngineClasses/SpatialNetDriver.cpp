@@ -35,6 +35,7 @@
 #include "LoadBalancing/OwnershipLockingPolicy.h"
 #include "SpatialConstants.h"
 #include "SpatialGDKSettings.h"
+#include "Schema/Singleton.h"
 #include "Utils/ComponentFactory.h"
 #include "Utils/EntityPool.h"
 #include "Utils/ErrorCodeRemapping.h"
@@ -616,6 +617,7 @@ void USpatialNetDriver::OnActorSpawned(AActor* Actor)
 {
 	if (!Actor->GetIsReplicated() ||
 		Actor->GetLocalRole() != ROLE_Authority ||
+		Actor->GetClass()->HasAnySpatialClassFlags(SPATIALCLASS_Singleton) ||
 		!Actor->GetClass()->HasAnySpatialClassFlags(SPATIALCLASS_SpatialType) ||
 		USpatialStatics::IsActorGroupOwnerForActor(Actor))
 	{
@@ -2300,7 +2302,7 @@ USpatialActorChannel* USpatialNetDriver::CreateSpatialActorChannel(AActor* Actor
 
 	USpatialActorChannel* Channel = nullptr;
 
-	if (Actor->GetClass()->HasAnySpatialClassFlags(SPATIALCLASS_Singleton) && !LoadBalanceStrategy->ShouldHaveAuthority(*Actor))
+	if (Actor->GetClass()->HasAnySpatialClassFlags(SPATIALCLASS_Singleton) && !SpatialGDK::Singleton::ShouldHaveLocalWorkerAuthority(Actor, LoadBalanceStrategy, StaticComponentView))
 	{
 		return Channel;
 	}
