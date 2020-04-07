@@ -28,6 +28,9 @@
 #include "Utils/SpatialDebugger.h"
 
 #include "Engine.h"
+#include "Engine/LevelScriptActor.h"
+#include "GameFramework/GameModeBase.h"
+#include "GameFramework/GameStateBase.h"
 
 DEFINE_LOG_CATEGORY(LogEntityFactory);
 
@@ -219,7 +222,7 @@ TArray<FWorkerComponentData> EntityFactory::CreateEntityComponents(USpatialActor
 	// Actors with bNetLoadOnClient=false also need a StablyNamedObjectRef for linking in the case of loading from a snapshot or the server crashes and restarts.
 	TSchemaOption<FUnrealObjectRef> StablyNamedObjectRef;
 	TSchemaOption<bool> bNetStartup;
-	if (Actor->HasAnyFlags(RF_WasLoaded) || Actor->bNetStartup)
+	if (Actor->HasAnyFlags(RF_WasLoaded) || Actor->bNetStartup || FUnrealObjectRef::ShouldLoadObjectFromClassPath(Actor))
 	{
 		// Since we've already received the EntityId for this Actor. It is guaranteed to be resolved
 		// with the package map by this point
@@ -255,24 +258,24 @@ TArray<FWorkerComponentData> EntityFactory::CreateEntityComponents(USpatialActor
 		ComponentDatas.Add(AuthorityIntent::CreateAuthorityIntentData(IntendedVirtualWorkerId));
 	}
 
-	if (NetDriver->SpatialDebugger != nullptr)
+#if !UE_BUILD_SHIPPING
+	if (SpatialSettings->SpatialDebugger != nullptr)
 	{
 		if (SpatialSettings->bEnableUnrealLoadBalancer)
 		{
 			check(NetDriver->VirtualWorkerTranslator != nullptr);
 
-			VirtualWorkerId IntentVirtualWorkerId = NetDriver->VirtualWorkerTranslator->GetLocalVirtualWorkerId();
+			const PhysicalWorkerName* PhysicalWorkerName = NetDriver->VirtualWorkerTranslator->GetPhysicalWorkerForVirtualWorker(IntendedVirtualWorkerId);
+			FColor InvalidServerTintColor = SpatialSettings->SpatialDebugger.GetDefaultObject()->InvalidServerTintColor;
+			FColor IntentColor = PhysicalWorkerName != nullptr ? SpatialGDK::GetColorForWorkerName(*PhysicalWorkerName) : InvalidServerTintColor;
 
-			const PhysicalWorkerName* PhysicalWorkerName = NetDriver->VirtualWorkerTranslator->GetPhysicalWorkerForVirtualWorker(IntentVirtualWorkerId);
-			FColor InvalidServerTintColor = NetDriver->SpatialDebugger->InvalidServerTintColor;
-			FColor IntentColor = PhysicalWorkerName == nullptr ? InvalidServerTintColor : SpatialGDK::GetColorForWorkerName(*PhysicalWorkerName);
-
-			SpatialDebugging DebuggingInfo(SpatialConstants::INVALID_VIRTUAL_WORKER_ID, InvalidServerTintColor, IntentVirtualWorkerId, IntentColor, false);
+			SpatialDebugging DebuggingInfo(SpatialConstants::INVALID_VIRTUAL_WORKER_ID, InvalidServerTintColor, IntendedVirtualWorkerId, IntentColor, false);
 			ComponentDatas.Add(DebuggingInfo.CreateSpatialDebuggingData());
 		}
 
 		ComponentWriteAcl.Add(SpatialConstants::SPATIAL_DEBUGGING_COMPONENT_ID, AuthoritativeWorkerRequirementSet);
 	}
+#endif
 
 	if (ActorInterestComponentId != SpatialConstants::INVALID_COMPONENT_ID)
 	{
