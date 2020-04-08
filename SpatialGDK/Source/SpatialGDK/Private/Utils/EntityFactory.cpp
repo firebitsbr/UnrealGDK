@@ -259,7 +259,7 @@ TArray<FWorkerComponentData> EntityFactory::CreateEntityComponents(USpatialActor
 	}
 
 #if !UE_BUILD_SHIPPING
-	if (SpatialSettings->SpatialDebugger != nullptr)
+	if (NetDriver->SpatialDebugger != nullptr)
 	{
 		if (SpatialSettings->bEnableUnrealLoadBalancer)
 		{
